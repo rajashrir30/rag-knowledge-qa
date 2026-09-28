@@ -1,0 +1,27 @@
+1
+00:00:00,000 --> 00:00:03,000
+<i>Welcome to the evening lecture.</i>
+
+2
+00:00:03,000 --> 00:00:07,500
+Today we will explore how a small seed becomes a forest.
+
+3
+00:00:07,500 --> 00:00:12,000
+The process begins quietly, beneath the soil, where roots seek water.
+
+4
+00:00:12,000 --> 00:00:16,000
+With sunlight and patience, the first green leaves appear.
+
+5
+00:00:16,000 --> 00:00:21,000
+Over many seasons, each tree creates shelter for birds and insects.
+
+6
+00:00:21,000 --> 00:00:26,000
+That is the central lesson: lasting change is built step by step.
+
+7
+00:00:26,000 --> 00:00:30,000
+Thank you for joining us, and enjoy the rest of the program.

@@ -4,3 +4,4 @@ fastapi
 uvicorn
 tiktoken
 python-dotenv
+pypdf
