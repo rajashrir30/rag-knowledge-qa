@@ -52,3 +52,13 @@ class VectorStore:
 
     def count(self) -> int:
         return self.collection.count()
+
+    def list_sources(self) -> list[str]:
+        """Return unique source filenames currently stored in the collection."""
+        result = self.collection.get(include=["metadatas"])
+        sources = {
+            str(metadata["source"])
+            for metadata in (result.get("metadatas") or [])
+            if metadata and metadata.get("source")
+        }
+        return sorted(sources)

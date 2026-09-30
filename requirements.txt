@@ -7,3 +7,5 @@ python-dotenv
 pypdf
 sentence-transformers
 anthropic
+streamlit
+requests

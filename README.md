@@ -134,4 +134,25 @@ Run all tests with:
 pytest
 ```
 
-The API/UI layer is not implemented yet.
+## API and UI
+
+Start the FastAPI server:
+
+```bash
+uvicorn src.api:app --reload
+```
+
+In a second terminal, start the Streamlit frontend:
+
+```bash
+streamlit run app.py
+```
+
+The API provides:
+
+- `GET /health` - health check
+- `POST /query` - answer a question using the RAG pipeline
+- `POST /index` - index a file or folder of supported documents
+- `GET /sources` - list indexed source filenames
+
+The Streamlit UI uploads documents into `data/uploads/`, indexes them through the API, displays indexed sources, and provides a question-answering interface with cited chunks.
