@@ -2,42 +2,59 @@
 
 A Retrieval-Augmented Generation (RAG) system for answering questions from custom text and video subtitle datasets with grounded answers and source citations.
 
-**Status:** In Progress - ingestion and chunking implemented
+**Status:** Core RAG pipeline implemented; API/UI are planned.
 
 ## Architecture
 
-Ingestion -> Chunking -> Embedding -> Retrieval -> Generation -> API
+Ingestion -> Chunking -> Embedding -> Vector Store -> Retrieval -> Generation -> API/UI
 
 ## Tech Stack
-  
+
 - Python
 - ChromaDB
 - OpenAI API
-- FastAPI
-- Uvicorn
+- Anthropic API (optional)
+- Sentence Transformers (optional local embeddings and reranking)
 - Tiktoken
+- FastAPI and Uvicorn (planned API layer)
 
 ## Implemented
 
-- Document ingestion
-- Text chunking
-- Token-aware chunking with configurable overlap
-- SRT and simple WebVTT subtitle parsing
-- Subtitle timestamp preservation
-- PDF text extraction with `pypdf`
+- Text, PDF, SRT, and simple WebVTT ingestion
+- Subtitle formatting cleanup and timestamp parsing
+- Token-aware text chunking with overlap
+- Subtitle chunking with start/end timestamps
+- OpenAI embeddings using `text-embedding-3-small`
+- Local embeddings using `sentence-transformers/all-MiniLM-L6-v2`
+- Persistent ChromaDB storage with deterministic IDs
+- Duplicate-safe vector upserts when re-indexing files
+- Similarity retrieval with score filtering and top-k limits
+- Optional cross-encoder reranking
+- Grounded generation with OpenAI or Anthropic
+- Numbered source citations and timestamp metadata
+- Exact fallback response when context is insufficient
+- Unit tests for chunking, vector storage, retrieval, and generation
 
-## Planned Features
+## Project Structure
 
-- Embedding generation
-- Vector database storage
-- Semantic search
-- RAG-based question answering
-- Source citations
-- REST API
+```text
+src/
+  ingestion.py       # Load TXT, PDF, SRT, and VTT documents
+  chunking.py        # Create token-aware chunks
+  embeddings.py      # OpenAI and local embedding providers
+  vector_store.py    # Persistent ChromaDB wrapper
+  index.py           # Ingestion -> chunking -> embedding -> storage CLI
+  retrieval.py       # Similarity search and optional reranking
+  prompts.py         # Grounded generation prompt
+  generation.py      # OpenAI/Anthropic answer generation
+config.py            # Environment-backed application settings
+data/sample/         # Example TXT and SRT files
+tests/               # Module tests
+```
 
 ## Setup
 
-Create and activate a virtual environment, then install the dependencies:
+Create and activate a virtual environment, then install dependencies:
 
 ```bash
 python -m venv .venv
@@ -50,11 +67,53 @@ pip install -r requirements.txt
 pip install pytest
 ```
 
-Copy `.env.example` to `.env` and add your OpenAI API key when the generation layer is added. The current ingestion and chunking modules do not call the OpenAI API.
+Copy `.env.example` to `.env` and configure the providers you want to use:
+
+```env
+OPENAI_API_KEY=your_api_key_here
+EMBEDDING_PROVIDER=openai
+EMBEDDING_MODEL=text-embedding-3-small
+GENERATION_PROVIDER=openai
+GENERATION_MODEL=gpt-4o-mini
+CHROMA_PATH=./chroma_db
+COLLECTION_NAME=rag_knowledge
+USE_RERANKER=false
+```
+
+For Anthropic generation, set `GENERATION_PROVIDER=anthropic` and provide the corresponding Anthropic API key in your environment. For local embeddings, set `EMBEDDING_PROVIDER=local`; this downloads the Sentence Transformers model on first use.
 
 ## Usage
 
-Load a document from Python:
+### Index a document
+
+```bash
+python -m src.index data/sample/example.txt
+python -m src.index data/sample/example.srt
+```
+
+The indexer loads the document, chunks it, creates embeddings, and upserts it into the persistent ChromaDB collection.
+
+### Retrieve relevant chunks
+
+```bash
+python -m src.retrieval --query "What is the main idea?" --k 5
+```
+
+Enable optional reranking with `USE_RERANKER=true`. Reranking improves ordering in some cases but adds model-loading time, memory usage, and latency.
+
+### Generate an answer
+
+```bash
+python -m src.generation --query "What is the main idea?" --k 5
+```
+
+Generated answers use only retrieved context. Claims are expected to include numbered citations such as `[1]` and `[2]`. When the context does not contain an answer, the generator returns:
+
+```text
+I don't have enough information to answer that.
+```
+
+### Use ingestion and chunking from Python
 
 ```python
 from src.ingestion import load_document
@@ -62,26 +121,17 @@ from src.chunking import chunk_subtitles, chunk_text
 
 document = load_document("data/sample/example.txt")
 chunks = chunk_text(document, chunk_size=500, overlap=50, source="example.txt")
-print(chunks)
 
 subtitles = load_document("data/sample/example.srt")
-chunks = chunk_subtitles(subtitles, max_tokens=300, source="example.srt")
-print(chunks)
-```
-
-The loaders support `.txt`, `.pdf`, `.srt`, and simple `.vtt` files. Text chunks include `text`, `chunk_id`, and `source`; subtitle chunks also include `start` and `end` timestamps in seconds.
-
-Each module can also be run directly:
-
-```bash
-python -m src.ingestion data/sample/example.srt
-python -m src.chunking data/sample/example.txt --chunk-size 100 --overlap 10
+subtitle_chunks = chunk_subtitles(subtitles, max_tokens=300, source="example.srt")
 ```
 
 ## Tests
 
-Run the chunking tests with:
+Run all tests with:
 
 ```bash
 pytest
 ```
+
+The API/UI layer is not implemented yet.
