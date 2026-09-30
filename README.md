@@ -2,7 +2,7 @@
 
 A Retrieval-Augmented Generation (RAG) system for answering questions from custom text and video subtitle datasets with grounded answers and source citations.
 
-**Status:** Core RAG pipeline implemented; API/UI are planned.
+**Status:** Core RAG pipeline, FastAPI service, and minimal Streamlit UI implemented.
 
 ## Architecture
 
@@ -16,7 +16,8 @@ Ingestion -> Chunking -> Embedding -> Vector Store -> Retrieval -> Generation ->
 - Anthropic API (optional)
 - Sentence Transformers (optional local embeddings and reranking)
 - Tiktoken
-- FastAPI and Uvicorn (planned API layer)
+- FastAPI and Uvicorn
+- Streamlit
 
 ## Implemented
 
@@ -47,8 +48,11 @@ src/
   retrieval.py       # Similarity search and optional reranking
   prompts.py         # Grounded generation prompt
   generation.py      # OpenAI/Anthropic answer generation
+api.py               # FastAPI endpoints
+app.py               # Streamlit frontend
 config.py            # Environment-backed application settings
 data/sample/         # Example TXT and SRT files
+data/uploads/        # Streamlit-uploaded files
 tests/               # Module tests
 ```
 
@@ -80,7 +84,7 @@ COLLECTION_NAME=rag_knowledge
 USE_RERANKER=false
 ```
 
-For Anthropic generation, set `GENERATION_PROVIDER=anthropic` and provide the corresponding Anthropic API key in your environment. For local embeddings, set `EMBEDDING_PROVIDER=local`; this downloads the Sentence Transformers model on first use.
+For Anthropic generation, set `GENERATION_PROVIDER=anthropic`, `GENERATION_MODEL=claude-sonnet-4-6`, and provide `ANTHROPIC_API_KEY` in your environment. For local embeddings, set `EMBEDDING_PROVIDER=local`; this downloads the Sentence Transformers model on first use.
 
 ## Usage
 
@@ -155,4 +159,12 @@ The API provides:
 - `POST /index` - index a file or folder of supported documents
 - `GET /sources` - list indexed source filenames
 
-The Streamlit UI uploads documents into `data/uploads/`, indexes them through the API, displays indexed sources, and provides a question-answering interface with cited chunks.
+Example API requests:
+
+```bash
+curl http://localhost:8000/health
+curl -X POST http://localhost:8000/index -H "Content-Type: application/json" -d "{\"path\": \"data/sample/example.txt\"}"
+curl -X POST http://localhost:8000/query -H "Content-Type: application/json" -d "{\"query\": \"What is the main idea?\", \"k\": 5}"
+```
+
+The Streamlit UI uploads documents into `data/uploads/`, indexes them through the API, displays indexed sources, and provides a question-answering interface with cited chunks. Set `API_URL` if the API is running somewhere other than `http://localhost:8000`.
