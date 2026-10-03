@@ -15,15 +15,24 @@ def test_health_returns_ok():
 def test_query_returns_generation_shape(monkeypatch):
     expected = {
         "answer": "The answer is supported [1].",
-        "citations": [{"marker": "[1]", "source": "example.txt", "chunk_id": 0, "start": None, "end": None}],
+        "citations": [{"marker": "[1]", "source": "example.txt", "chunk_id": 0, "start": None, "end": None, "text": "supported fact"}],
         "used_fallback": False,
     }
-    monkeypatch.setattr(api, "answer_question", lambda query, k: expected)
-    monkeypatch.setattr(api, "retrieve", lambda query, k: [])
+    class FakeGenerator:
+        def generate(self, query, chunks):
+            return dict(expected)
+
+    monkeypatch.setattr(api, "hybrid_retrieve", lambda query, k, alpha, rewrite: {
+        "query": query,
+        "rewritten_query": query,
+        "results": [{"text": "supported fact", "source": "example.txt", "chunk_id": 0}],
+    })
+    monkeypatch.setattr(api, "get_generator", lambda: FakeGenerator())
 
     response = client.post("/query", json={"query": "What is the answer?", "k": 5})
     assert response.status_code == 200
-    assert response.json() == expected
+    assert response.json()["answer"] == expected["answer"]
+    assert response.json()["citations"] == expected["citations"]
 
 
 def test_query_missing_query_returns_400():

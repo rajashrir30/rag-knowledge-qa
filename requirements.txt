@@ -9,3 +9,4 @@ sentence-transformers
 anthropic
 streamlit
 requests
+rank-bm25

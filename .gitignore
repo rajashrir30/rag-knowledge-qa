@@ -8,3 +8,5 @@ chroma_db/
 .DS_Store
 *.log
 .ipynb_checkpoints/
+eval/results/*.json
+!eval/results/sample.json

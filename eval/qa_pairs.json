@@ -1,0 +1,74 @@
+[
+  {
+    "question": "Where did Mara walk every morning?",
+    "expected_answer_contains": ["river"],
+    "expected_source": "example.txt",
+    "answerable": true
+  },
+  {
+    "question": "Who made the bench near the water?",
+    "expected_answer_contains": ["Mara's grandfather"],
+    "expected_source": "example.txt",
+    "answerable": true
+  },
+  {
+    "question": "How tall was the young oak when Mara first noticed it?",
+    "expected_answer_contains": ["knee"],
+    "expected_source": "example.txt",
+    "answerable": true
+  },
+  {
+    "question": "What did Mara bring to the oak each day?",
+    "expected_answer_contains": ["cup of water", "river"],
+    "expected_source": "example.txt",
+    "answerable": true
+  },
+  {
+    "question": "What lesson did Mara learn about a beginning?",
+    "expected_answer_contains": ["place to grow", "care", "time"],
+    "expected_source": "example.txt",
+    "answerable": true
+  },
+  {
+    "question": "What do birds build among the oak's branches?",
+    "expected_answer_contains": ["nests"],
+    "expected_source": "example.txt",
+    "answerable": true
+  },
+  {
+    "question": "What does the lecture say a small seed becomes?",
+    "expected_answer_contains": ["forest"],
+    "expected_source": "example.srt",
+    "answerable": true
+  },
+  {
+    "question": "Where do roots seek water according to the lecture?",
+    "expected_answer_contains": ["beneath the soil"],
+    "expected_source": "example.srt",
+    "answerable": true
+  },
+  {
+    "question": "What is the central lesson about lasting change?",
+    "expected_answer_contains": ["step by step"],
+    "expected_source": "example.srt",
+    "answerable": true
+  },
+  {
+    "question": "What color was Mara's dress at the river?",
+    "expected_answer_contains": [],
+    "expected_source": "none",
+    "answerable": false
+  },
+  {
+    "question": "What is the name of the river?",
+    "expected_answer_contains": [],
+    "expected_source": "none",
+    "answerable": false
+  },
+  {
+    "question": "On what date did the evening lecture take place?",
+    "expected_answer_contains": [],
+    "expected_source": "none",
+    "answerable": false
+  }
+]

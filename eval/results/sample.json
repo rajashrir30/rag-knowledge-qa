@@ -1,0 +1,13 @@
+{
+  "generated_at": "2026-01-01T00:00:00+00:00",
+  "metrics": {
+    "k": 5,
+    "retrieval_hit_rate_at_k_percent": 100.0,
+    "answer_accuracy_percent": 88.89,
+    "fallback_precision_percent": 100.0,
+    "false_positive_rate_percent": 0.0,
+    "answerable_count": 9,
+    "unanswerable_count": 3
+  },
+  "results": []
+}

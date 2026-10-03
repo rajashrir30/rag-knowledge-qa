@@ -11,15 +11,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from src.generation import answer_question
+from src.generation import get_generator
 from src.index import index_file
-from src.retrieval import retrieve
+from src.retrieval import hybrid_retrieve
 from src.vector_store import VectorStore
 
 
 class QueryRequest(BaseModel):
     query: str = Field(..., min_length=1)
     k: int = Field(default=5, ge=1, le=10)
+    alpha: float = Field(default=0.5, ge=0.0, le=1.0)
+    rewrite: bool = True
 
 
 class IndexRequest(BaseModel):
@@ -56,18 +58,24 @@ def health() -> dict[str, str]:
 @app.post("/query")
 def query(request: QueryRequest) -> dict[str, Any]:
     try:
-        result = answer_question(request.query.strip(), k=request.k)
-        # answer_question remains unchanged; add chunk text here for the UI's
-        # expandable source panel by resolving the numbered citation markers.
+        question = request.query.strip()
+        if not question:
+            raise HTTPException(status_code=400, detail="Query must not be empty.")
+        hybrid = hybrid_retrieve(question, k=request.k, alpha=request.alpha, rewrite=request.rewrite)
+        chunks = hybrid["results"]
+        result = get_generator().generate(question, chunks)
+        # Add chunk text here for the UI's expandable source panel by resolving
+        # the numbered citation markers against the hybrid result set.
         if result.get("citations"):
-            retrieved_chunks = retrieve(request.query.strip(), k=request.k)
             for citation in result["citations"]:
                 marker = str(citation.get("marker", ""))
                 try:
-                    chunk = retrieved_chunks[int(marker.strip("[]")) - 1]
+                    chunk = chunks[int(marker.strip("[]")) - 1]
                 except (ValueError, IndexError):
                     continue
                 citation["text"] = chunk.get("text", "")
+        result["query"] = hybrid["query"]
+        result["rewritten_query"] = hybrid["rewritten_query"]
         return result
     except HTTPException:
         raise

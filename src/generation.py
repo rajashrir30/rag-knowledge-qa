@@ -1,4 +1,4 @@
-"""Grounded answer generation using OpenAI or Anthropic models."""
+"""Grounded answer generation using local or hosted models."""
 
 from __future__ import annotations
 
@@ -7,6 +7,8 @@ import os
 import re
 from abc import ABC, abstractmethod
 from typing import Any
+
+import requests
 
 from config import Settings, load_settings
 from src.prompts import FALLBACK_PHRASE, SYSTEM_PROMPT, build_prompt
@@ -89,6 +91,38 @@ class AnthropicGenerator(Generator):
         return _result_from_answer(answer, chunks)
 
 
+class OllamaGenerator(Generator):
+    """Generate grounded answers through a local Ollama HTTP server."""
+
+    def __init__(self, model: str | None = None, base_url: str | None = None, client: Any = None):
+        self.model = model or os.getenv("OLLAMA_MODEL", "llama3.1:8b")
+        self.base_url = (base_url or os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")).rstrip("/")
+        self.client = client or requests
+
+    def generate(self, query: str, chunks: list[dict[str, Any]]) -> dict[str, Any]:
+        payload = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": build_prompt(query, chunks)},
+            ],
+            "stream": False,
+        }
+        try:
+            response = self.client.post(f"{self.base_url}/api/chat", json=payload, timeout=120)
+            response.raise_for_status()
+            answer = response.json().get("message", {}).get("content", "").strip() or FALLBACK_PHRASE
+        except requests.exceptions.RequestException as exc:
+            raise RuntimeError(
+                "Ollama is not running or is unreachable at "
+                f"{self.base_url}. Install Ollama from https://ollama.com and start it, "
+                f"then run 'ollama pull {self.model}'."
+            ) from exc
+        except (ValueError, AttributeError, KeyError) as exc:
+            raise RuntimeError("Ollama returned an invalid response.") from exc
+        return _result_from_answer(answer, chunks)
+
+
 def get_generator(config: Settings | None = None) -> Generator:
     """Create the provider configured by GENERATION_PROVIDER."""
     config = config or load_settings()
@@ -97,7 +131,9 @@ def get_generator(config: Settings | None = None) -> Generator:
         return OpenAIGenerator(model=config.generation_model)
     if provider == "anthropic":
         return AnthropicGenerator(model=config.generation_model)
-    raise ValueError("GENERATION_PROVIDER must be 'openai' or 'anthropic'")
+    if provider == "ollama":
+        return OllamaGenerator(model=config.generation_model)
+    raise ValueError("GENERATION_PROVIDER must be 'openai', 'anthropic', or 'ollama'")
 
 
 def answer_question(query: str, k: int = 5) -> dict[str, Any]:

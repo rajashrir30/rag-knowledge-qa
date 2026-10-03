@@ -8,6 +8,8 @@ import os
 from typing import Any
 
 from src.embeddings import Embedder, get_embedder
+from src.keyword_search import keyword_search
+from src.query_rewrite import rewrite_query
 from src.vector_store import VectorStore
 
 
@@ -49,27 +51,7 @@ class Retriever:
 
         self.store = self.store or VectorStore()
         self.embedder = self.embedder or get_embedder()
-        query_embedding = self.embedder.embed_texts([query])[0]
-        result = self.store.collection.query(
-            query_embeddings=[query_embedding],
-            n_results=k,
-            include=["documents", "metadatas", "distances"],
-        )
-        candidates: list[dict[str, Any]] = []
-        documents = result.get("documents", [[]])[0]
-        metadatas = result.get("metadatas", [[]])[0]
-        distances = result.get("distances", [[]])[0]
-        for text, metadata, distance in zip(documents, metadatas, distances):
-            metadata = metadata or {}
-            candidates.append({
-                "text": text,
-                "source": metadata.get("source", ""),
-                "chunk_id": metadata.get("chunk_id", 0),
-                "start": metadata.get("start"),
-                "end": metadata.get("end"),
-                "score": _distance_to_score(float(distance)),
-            })
-
+        candidates = _vector_search(query, k, self.store, self.embedder)
         if self.use_reranker and candidates:
             candidates = self.rerank(query, candidates, k)
         return [candidate for candidate in candidates if candidate["score"] >= min_score][:k]
@@ -92,8 +74,121 @@ class Retriever:
 _DEFAULT_RETRIEVER: Retriever | None = None
 
 
-def retrieve(query: str, k: int = 5, min_score: float = 0.0) -> list[dict[str, Any]]:
+def _vector_search(query: str, k: int, store: VectorStore, embedder: Embedder) -> list[dict[str, Any]]:
+    query_embedding = embedder.embed_texts([query])[0]
+    result = store.collection.query(
+        query_embeddings=[query_embedding],
+        n_results=k,
+        include=["documents", "metadatas", "distances"],
+    )
+    candidates: list[dict[str, Any]] = []
+    documents = result.get("documents", [[]])[0]
+    metadatas = result.get("metadatas", [[]])[0]
+    distances = result.get("distances", [[]])[0]
+    for text, metadata, distance in zip(documents, metadatas, distances):
+        metadata = metadata or {}
+        candidates.append({
+            "text": text,
+            "source": metadata.get("source", ""),
+            "chunk_id": metadata.get("chunk_id", 0),
+            "start": metadata.get("start"),
+            "end": metadata.get("end"),
+            "score": _distance_to_score(float(distance)),
+        })
+    return candidates
+
+
+def retrieve(
+    query: str,
+    k: int = 5,
+    min_score: float = 0.0,
+    *,
+    store: VectorStore | None = None,
+    embedder: Embedder | None = None,
+) -> list[dict[str, Any]]:
     """Retrieve the most relevant stored chunks for a query."""
+    if not query or k <= 0:
+        return []
+    if not 0.0 <= min_score <= 1.0:
+        raise ValueError("min_score must be between 0 and 1")
+    store = store or VectorStore()
+    embedder = embedder or get_embedder()
+    candidates = _vector_search(query, k, store, embedder)
+    return [candidate for candidate in candidates if candidate["score"] >= min_score][:k]
+
+
+def _normalize_scores(scores: list[float]) -> list[float]:
+    if not scores:
+        return []
+    minimum, maximum = min(scores), max(scores)
+    if maximum == minimum:
+        return [1.0] * len(scores)
+    return [(score - minimum) / (maximum - minimum) for score in scores]
+
+
+def hybrid_retrieve(
+    query: str,
+    k: int = 5,
+    alpha: float = 0.5,
+    rewrite: bool = True,
+    *,
+    store: VectorStore | None = None,
+    embedder: Embedder | None = None,
+) -> dict[str, Any]:
+    """Blend vector and BM25 results, optionally using a rewritten query."""
+    if k <= 0:
+        return {"query": query, "rewritten_query": query, "results": []}
+    if not 0.0 <= alpha <= 1.0:
+        raise ValueError("alpha must be between 0 and 1")
+
+    store = store or VectorStore()
+    embedder = embedder or get_embedder()
+    rewritten = rewrite_query(query) if rewrite else query
+    vector_results = _vector_search(rewritten, k, store, embedder)
+
+    if alpha == 1.0:
+        return {"query": query, "rewritten_query": rewritten, "results": vector_results[:k]}
+
+    from src.keyword_search import _load_chunks
+
+    chunks = _load_chunks(store)
+    keyword_results = keyword_search(rewritten, k=k, chunks=chunks, store=store)
+    if alpha == 0.0:
+        results = []
+        for item in keyword_results:
+            result = dict(item)
+            result["score"] = _normalize_scores([entry["bm25_score"] for entry in keyword_results])[len(results)]
+            results.append(result)
+        return {"query": query, "rewritten_query": rewritten, "results": results[:k]}
+
+    vector_norm = _normalize_scores([item["score"] for item in vector_results])
+    keyword_norm = _normalize_scores([item["bm25_score"] for item in keyword_results])
+    combined: dict[str, dict[str, Any]] = {}
+    for index, item in enumerate(vector_results):
+        result = dict(item)
+        result["vector_score"] = item["score"]
+        result["_vector_norm"] = vector_norm[index]
+        combined[str(item.get("chunk_id"))] = result
+    for index, item in enumerate(keyword_results):
+        key = str(item.get("chunk_id"))
+        if key not in combined:
+            combined[key] = dict(item)
+        result = combined[key]
+        result["bm25_score"] = item["bm25_score"]
+        result["_keyword_norm"] = keyword_norm[index]
+
+    results = []
+    for result in combined.values():
+        result["score"] = alpha * result.get("_vector_norm", 0.0) + (1.0 - alpha) * result.get("_keyword_norm", 0.0)
+        result.pop("_vector_norm", None)
+        result.pop("_keyword_norm", None)
+        results.append(result)
+    results.sort(key=lambda item: item["score"], reverse=True)
+    return {"query": query, "rewritten_query": rewritten, "results": results[:k]}
+
+
+def retrieve_legacy_default(query: str, k: int = 5, min_score: float = 0.0) -> list[dict[str, Any]]:
+    """Compatibility helper retained for callers that use the old singleton."""
     global _DEFAULT_RETRIEVER
     if _DEFAULT_RETRIEVER is None:
         _DEFAULT_RETRIEVER = Retriever()

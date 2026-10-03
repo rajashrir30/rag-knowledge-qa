@@ -1,4 +1,6 @@
-from src.generation import Generator, _result_from_answer
+import pytest
+
+from src.generation import Generator, OllamaGenerator, _result_from_answer
 from src.prompts import FALLBACK_PHRASE, build_prompt
 
 
@@ -37,3 +39,35 @@ def test_build_prompt_numbers_sources_and_timestamps():
     assert "[1] Source: history.txt" in prompt
     assert "[2] Source: tour.srt | Timestamp: 12.5s - 16.0s" in prompt
     assert "Question: Where is the library?" in prompt
+
+
+def test_ollama_generator_uses_chat_api_and_maps_response():
+    class Response:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"message": {"content": "The library opened in 1901 [1]."}}
+
+    class Client:
+        def post(self, url, **kwargs):
+            self.url = url
+            self.kwargs = kwargs
+            return Response()
+
+    client = Client()
+    result = OllamaGenerator(model="mistral", base_url="http://ollama", client=client).generate("When?", sample_chunks())
+
+    assert result["answer"] == "The library opened in 1901 [1]."
+    assert client.url == "http://ollama/api/chat"
+    assert client.kwargs["json"]["model"] == "mistral"
+    assert client.kwargs["json"]["stream"] is False
+
+
+def test_ollama_generator_reports_unreachable_server():
+    class Client:
+        def post(self, *args, **kwargs):
+            raise __import__("requests").exceptions.ConnectionError("offline")
+
+    with pytest.raises(RuntimeError, match=r"Ollama is not running.*https://ollama.com"):
+        OllamaGenerator(client=Client()).generate("When?", sample_chunks())
