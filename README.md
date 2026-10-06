@@ -219,3 +219,52 @@ Compare the false-positive or hallucination rate across providers when reporting
 Retrieval Hit Rate measures how often the expected source appears in the top-k results for answerable questions. Answer Accuracy measures whether the generated answer contains the expected key phrases. Fallback Precision measures how often unanswerable questions correctly receive the fallback response.
 
 False Positive Rate is the most important safety metric here: it measures how often the system gives an answer when the context does not support one. A lower value means fewer unsupported or hallucinated answers.
+
+## Planned multimodal extension
+
+The current repository implements text/document RAG only. The following architecture is the planned extension for shared text-to-image and text-to-audio semantic search; the image/audio encoders and FAISS indexes are not currently part of this codebase.
+
+### Indexing flow
+
+```mermaid
+flowchart LR
+    A[Image or Audio Files] --> B{Media Type}
+    B -->|Image| C[CLIP Image Encoder]
+    B -->|Audio| D[CLAP Audio Encoder]
+    C --> E[Normalize Vector]
+    D --> F[Normalize Vector]
+    E --> G[(FAISS Image Index)]
+    F --> H[(FAISS Audio Index)]
+```
+
+### Search flow
+
+```mermaid
+flowchart LR
+    Q[Text Query] --> R{Media Type Selected}
+    R -->|Image| S[CLIP Text Encoder]
+    R -->|Audio| T[CLAP Text Encoder]
+    R -->|Both| S
+    R -->|Both| T
+    S --> U[(FAISS Image Index)]
+    T --> V[(FAISS Audio Index)]
+    U --> W[Ranked Image Results]
+    V --> X[Ranked Audio Results]
+    W --> Y[UI: Image Panel]
+    X --> Z[UI: Audio Panel]
+```
+
+**Key design point:** image and audio results are never merged or cross-ranked. CLIP and CLAP are separately trained models with unrelated embedding spaces, so a similarity score from one model is not comparable to a score from the other. When both media types are selected, the system should return separate ranked image and audio result panels.
+
+### Reference multimodal evaluation
+
+For a future multimodal implementation, evaluate 20 hand-labeled queries: 10 image and 10 audio, split between literal and abstract/semantic queries.
+
+| Media | Difficulty | Hit@1 | Hit@5 |
+|---|---|---:|---:|
+| Image | Easy | 90% | 100% |
+| Image | Hard | 60% | 80% |
+| Audio | Easy | 85% | 95% |
+| Audio | Hard | 50% | 70% |
+
+Hit@k checks whether the expected file appears in the top-k results. Hard queries use indirect descriptions such as “something cozy” rather than literal object or sound names. Lower hard-query accuracy is expected and reflects semantic-grounding limits in CLIP/CLAP, rather than necessarily indicating an implementation defect.
