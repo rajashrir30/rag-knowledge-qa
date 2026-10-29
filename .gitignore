@@ -1,10 +1,24 @@
 __pycache__/
 *.pyc
 .venv/
+.venv312/
 venv/
 .env
+.env.*
+!.env.example
 *.db
+
+# Uploaded documents
+data/uploads/
+
+# Streamlit secrets
+.streamlit/secrets.toml
+
+# Local model and vector data
+.chroma/
 chroma_db/
+data/chroma_db/
+
 .DS_Store
 *.log
 .ipynb_checkpoints/

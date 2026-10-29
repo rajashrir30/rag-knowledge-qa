@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: rag-knowledge-qa-api
+    runtime: python
+    branch: main
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn src.api:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: GENERATION_PROVIDER
+        value: openai
+      - key: GENERATION_MODEL
+        value: gpt-4o-mini
+      - key: EMBEDDING_PROVIDER
+        value: openai
+      - key: EMBEDDING_MODEL
+        value: text-embedding-3-small
+      - key: USE_QUERY_REWRITE
+        value: "false"
+      - key: USE_RERANKER
+        value: "false"
+      - key: CHROMA_PATH
+        value: ./chroma_db
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: API_ACCESS_TOKEN
+        sync: false
+      - key: FRONTEND_URL
+        sync: false

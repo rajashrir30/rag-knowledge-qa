@@ -96,15 +96,18 @@ def build_bm25_index(chunks: list[dict[str, Any]], cache_dir: str | Path | None 
     return index
 
 
-def _load_chunks(store: VectorStore) -> list[dict[str, Any]]:
+def _load_chunks(store: VectorStore, sources: list[str] | None = None) -> list[dict[str, Any]]:
     result = store.collection.get(include=["documents", "metadatas"])
     chunks = []
     for text, metadata in zip(result.get("documents") or [], result.get("metadatas") or []):
         metadata = metadata or {}
+        if sources and metadata.get("source") not in sources:
+            continue
         chunks.append({
             "text": text,
             "source": metadata.get("source", ""),
             "chunk_id": metadata.get("chunk_id", 0),
+            "page": metadata.get("page"),
             "start": metadata.get("start"),
             "end": metadata.get("end"),
         })

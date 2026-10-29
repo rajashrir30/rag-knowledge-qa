@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 from abc import ABC, abstractmethod
+from functools import lru_cache
 from typing import Any
 
 from config import Settings, load_settings
@@ -64,11 +65,16 @@ class LocalEmbedder(Embedder):
         return vectors.tolist()
 
 
-def get_embedder(config: Settings | None = None) -> Embedder:
-    """Create the provider selected by EMBEDDING_PROVIDER."""
-    config = config or load_settings()
+@lru_cache(maxsize=4)
+def _build_embedder(config: Settings) -> Embedder:
+    """Build one embedder per configuration and reuse it across requests."""
     if config.embedding_provider == "openai":
         return OpenAIEmbedder(model=config.embedding_model)
     if config.embedding_provider == "local":
         return LocalEmbedder(model=config.embedding_model)
     raise ValueError(f"Unsupported embedding provider: {config.embedding_provider}")
+
+
+def get_embedder(config: Settings | None = None) -> Embedder:
+    """Return a cached embedder for the active configuration."""
+    return _build_embedder(config or load_settings())

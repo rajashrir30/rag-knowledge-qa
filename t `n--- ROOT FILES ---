@@ -1,0 +1,21 @@
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/api.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/embeddings.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/generation.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/index.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/ingestion.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/keyword_search.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/retrieval.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/vector_store.py', LF will be replaced by CRLF the next time Git touches it
+ .gitignore            |  14 [32m+++[m
+ app.py                | 315 [32m+++++++++++++++++++++++++++++++++++++++++[m[31m---------[m
+ src/api.py            |  30 [32m++++[m[31m-[m
+ src/embeddings.py     |  12 [32m+[m[31m-[m
+ src/generation.py     |   1 [32m+[m
+ src/index.py          |  21 [32m+++[m[31m-[m
+ src/ingestion.py      |  10 [32m+[m[31m-[m
+ src/keyword_search.py |   5 [32m+[m[31m-[m
+ src/retrieval.py      |  27 [32m+++[m[31m--[m
+ src/vector_store.py   |   4 [32m+[m[31m-[m
+ 10 files changed, 361 insertions(+), 78 deletions(-)

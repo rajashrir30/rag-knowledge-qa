@@ -43,9 +43,9 @@ class VectorStore:
                 "source": str(chunk.get("source", "")),
                 "chunk_id": int(chunk.get("chunk_id", 0)),
             }
-            for field in ("start", "end"):
+            for field in ("start", "end", "page"):
                 if field in chunk and chunk[field] is not None:
-                    metadata[field] = float(chunk[field])
+                    metadata[field] = int(chunk[field]) if field == "page" else float(chunk[field])
             metadatas.append(metadata)
         self.collection.upsert(ids=ids, documents=documents, embeddings=embeddings, metadatas=metadatas)
         return ids

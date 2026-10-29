@@ -31,6 +31,7 @@ def _result_from_answer(answer: str, chunks: list[dict[str, Any]]) -> dict[str, 
             "marker": f"[{index}]",
             "source": chunk.get("source", ""),
             "chunk_id": chunk.get("chunk_id"),
+            "page": chunk.get("page"),
             "start": chunk.get("start"),
             "end": chunk.get("end"),
         }

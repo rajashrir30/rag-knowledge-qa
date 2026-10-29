@@ -74,13 +74,22 @@ class Retriever:
 _DEFAULT_RETRIEVER: Retriever | None = None
 
 
-def _vector_search(query: str, k: int, store: VectorStore, embedder: Embedder) -> list[dict[str, Any]]:
+def _vector_search(
+    query: str,
+    k: int,
+    store: VectorStore,
+    embedder: Embedder,
+    sources: list[str] | None = None,
+) -> list[dict[str, Any]]:
     query_embedding = embedder.embed_texts([query])[0]
-    result = store.collection.query(
-        query_embeddings=[query_embedding],
-        n_results=k,
-        include=["documents", "metadatas", "distances"],
-    )
+    query_args: dict[str, Any] = {
+        "query_embeddings": [query_embedding],
+        "n_results": k,
+        "include": ["documents", "metadatas", "distances"],
+    }
+    if sources:
+        query_args["where"] = {"source": {"$in": sources}}
+    result = store.collection.query(**query_args)
     candidates: list[dict[str, Any]] = []
     documents = result.get("documents", [[]])[0]
     metadatas = result.get("metadatas", [[]])[0]
@@ -91,6 +100,7 @@ def _vector_search(query: str, k: int, store: VectorStore, embedder: Embedder) -
             "text": text,
             "source": metadata.get("source", ""),
             "chunk_id": metadata.get("chunk_id", 0),
+            "page": metadata.get("page"),
             "start": metadata.get("start"),
             "end": metadata.get("end"),
             "score": _distance_to_score(float(distance)),
@@ -134,6 +144,7 @@ def hybrid_retrieve(
     *,
     store: VectorStore | None = None,
     embedder: Embedder | None = None,
+    sources: list[str] | None = None,
 ) -> dict[str, Any]:
     """Blend vector and BM25 results, optionally using a rewritten query."""
     if k <= 0:
@@ -144,14 +155,14 @@ def hybrid_retrieve(
     store = store or VectorStore()
     embedder = embedder or get_embedder()
     rewritten = rewrite_query(query) if rewrite else query
-    vector_results = _vector_search(rewritten, k, store, embedder)
+    vector_results = _vector_search(rewritten, k, store, embedder, sources=sources)
 
     if alpha == 1.0:
         return {"query": query, "rewritten_query": rewritten, "results": vector_results[:k]}
 
     from src.keyword_search import _load_chunks
 
-    chunks = _load_chunks(store)
+    chunks = _load_chunks(store, sources=sources)
     keyword_results = keyword_search(rewritten, k=k, chunks=chunks, store=store)
     if alpha == 0.0:
         results = []

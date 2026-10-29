@@ -10,3 +10,4 @@ anthropic
 streamlit
 requests
 rank-bm25
+python-multipart

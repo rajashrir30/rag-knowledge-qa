@@ -42,12 +42,14 @@ def load_text(path: str | Path) -> str:
 
 def load_pdf(path: str | Path) -> str:
     """Extract and normalize text from all pages of a PDF."""
+    return _clean_text("\n".join(load_pdf_pages(path)))
+
+
+def load_pdf_pages(path: str | Path) -> list[str]:
+    """Extract normalized text while preserving the PDF page boundaries."""
     from pypdf import PdfReader
 
-    pages = []
-    for page in PdfReader(str(path)).pages:
-        pages.append(page.extract_text() or "")
-    return _clean_text("\n".join(pages))
+    return [_clean_text(page.extract_text() or "") for page in PdfReader(str(path)).pages]
 
 
 def load_srt(path: str | Path) -> list[SubtitleEntry]:
