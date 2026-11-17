@@ -24,6 +24,23 @@ def test_add_chunks_upserts_without_duplicates(tmp_path):
     assert result["metadatas"][0]["source"] == "example.txt"
 
 
+def test_reindexing_removes_stale_chunks(tmp_path):
+    store = VectorStore(path=tmp_path, collection_name="stale_collection")
+    initial = [
+        {"text": "first", "chunk_id": 0, "source": "example.txt"},
+        {"text": "second", "chunk_id": 1, "source": "example.txt"},
+    ]
+    store.add_chunks(initial, [[0.1, 0.2], [0.2, 0.3]])
+
+    current = [{"text": "updated", "chunk_id": 0, "source": "example.txt"}]
+    store.add_chunks(current, [[0.4, 0.5]])
+
+    result = store.collection.get(include=["documents", "metadatas"])
+    assert store.count() == 1
+    assert result["documents"] == ["updated"]
+
+
+
 def test_subtitle_metadata_is_stored(tmp_path):
     store = VectorStore(path=tmp_path, collection_name="subtitle_collection")
     chunks = [{"text": "hello", "chunk_id": 0, "source": "example.srt", "start": 1.5, "end": 3.0}]

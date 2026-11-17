@@ -179,9 +179,10 @@ def hybrid_retrieve(
         result = dict(item)
         result["vector_score"] = item["score"]
         result["_vector_norm"] = vector_norm[index]
-        combined[str(item.get("chunk_id"))] = result
+        key = f"{item.get('source', '')}\0{item.get('chunk_id')}"
+        combined[key] = result
     for index, item in enumerate(keyword_results):
-        key = str(item.get("chunk_id"))
+        key = f"{item.get('source', '')}\0{item.get('chunk_id')}"
         if key not in combined:
             combined[key] = dict(item)
         result = combined[key]

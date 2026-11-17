@@ -29,13 +29,28 @@ class VectorStore:
         self.collection = self.client.get_or_create_collection(name=self.collection_name)
 
     def add_chunks(self, chunks: list[dict[str, Any]], embeddings: list[list[float]]) -> list[str]:
-        """Upsert chunks so indexing a file repeatedly does not create duplicates."""
+        """Replace the supplied sources with their current chunks.
+
+        Upserting prevents duplicates, while deleting IDs that are no longer
+        present prevents stale chunks when a document gets shorter or changes
+        its chunk boundaries.
+        """
         if len(chunks) != len(embeddings):
             raise ValueError("chunks and embeddings must have the same length")
         if not chunks:
             return []
 
         ids = [chunk_id_for(chunk) for chunk in chunks]
+        ids_by_source: dict[str, set[str]] = {}
+        for chunk, chunk_id in zip(chunks, ids):
+            ids_by_source.setdefault(str(chunk.get("source", "")), set()).add(chunk_id)
+
+        for source, current_ids in ids_by_source.items():
+            existing = self.collection.get(where={"source": source}, include=["metadatas"])
+            stale_ids = [existing_id for existing_id in (existing.get("ids") or []) if existing_id not in current_ids]
+            if stale_ids:
+                self.collection.delete(ids=stale_ids)
+
         documents = [str(chunk["text"]) for chunk in chunks]
         metadatas = []
         for chunk in chunks:

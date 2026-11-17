@@ -28,6 +28,14 @@ def test_citation_markers_map_to_source_chunks():
     assert result["used_fallback"] is False
 
 
+def test_pdf_page_metadata_is_included_in_citation():
+    chunks = [{"text": "A fact", "source": "guide.pdf", "chunk_id": 0, "page": 4}]
+    result = FakeGenerator("A fact [1].").generate("What fact?", chunks)
+    assert result["citations"] == [
+        {"marker": "[1]", "source": "guide.pdf", "chunk_id": 0, "start": None, "end": None, "page": 4}
+    ]
+
+
 def test_fallback_phrase_is_detected():
     result = FakeGenerator(FALLBACK_PHRASE).generate("Unknown?", sample_chunks())
     assert result["used_fallback"] is True

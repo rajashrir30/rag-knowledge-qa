@@ -51,6 +51,39 @@ def test_hybrid_deduplicates_by_chunk_id(monkeypatch):
     assert len({item["chunk_id"] for item in result["results"]}) == len(result["results"])
 
 
+def test_hybrid_keeps_same_chunk_id_from_different_sources(monkeypatch):
+    class CollisionCollection(FakeCollection):
+        def __init__(self):
+            self.chunks = [
+                {"text": "one", "source": "one.txt", "chunk_id": 0},
+                {"text": "two", "source": "two.txt", "chunk_id": 0},
+            ]
+
+        def query(self, query_embeddings, n_results, include):
+            return {
+                "documents": [["one", "two"]],
+                "metadatas": [[self.chunks[0], self.chunks[1]]],
+                "distances": [[0.0, 0.5]],
+            }
+
+    class CollisionStore:
+        path = "."
+        collection = CollisionCollection()
+
+    def keyword_results(query, k, **kwargs):
+        return [
+            {"text": "two", "source": "two.txt", "chunk_id": 0, "bm25_score": 2.0},
+            {"text": "one", "source": "one.txt", "chunk_id": 0, "bm25_score": 1.0},
+        ][:k]
+
+    monkeypatch.setattr("src.retrieval.keyword_search", keyword_results)
+    result = hybrid_retrieve("query", k=2, alpha=0.5, rewrite=False, store=CollisionStore(), embedder=FakeEmbedder())
+    assert {(item["source"], item["chunk_id"]) for item in result["results"]} == {
+        ("one.txt", 0),
+        ("two.txt", 0),
+    }
+
+
 def test_alpha_extremes_match_single_signal_search(monkeypatch):
     monkeypatch.setattr("src.retrieval.keyword_search", fake_keyword_search)
     store = FakeStore()
